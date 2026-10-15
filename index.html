@@ -29,7 +29,6 @@ button:focus-visible{outline:2px solid var(--fg);outline-offset:3px;border-radiu
 .brand{display:flex;align-items:center;gap:8px;font-weight:700;font-size:20px}
 .brand i{width:10px;height:10px;border-radius:50%;background:#f5c451;box-shadow:0 0 12px #f5c451}
 .tools{display:flex;align-items:center;gap:10px}
-.count{font-size:12px;color:var(--dim);font-variant-numeric:tabular-nums}
 .pill{display:inline-flex;align-items:center;gap:6px;height:34px;padding-inline:12px;border-radius:17px;background:var(--chip);border:1px solid var(--faint);font-size:13px;font-weight:600}
 .pill svg{width:16px;height:16px}
 .feed{height:100%;overflow-y:scroll;scroll-snap-type:y mandatory;scrollbar-width:none;overscroll-behavior:contain}
@@ -68,6 +67,26 @@ h2{margin:0;font-size:clamp(22px,3.4vh,30px);line-height:1.35;font-weight:700;te
 .item p{margin:0 0 14px;font-family:var(--read);font-size:16px;line-height:1.85}
 .empty{color:var(--dim);font-size:14px;text-align:center;padding:28px 0;line-height:1.7}
 @media (prefers-reduced-motion:reduce){.hint{transition:none}}
+/* Voice reel: canvas atmosphere behind, one spoken sentence at a time, words light up as they're read */
+.card.voice{background:var(--bg);overflow:hidden}
+.card.voice canvas.bg{position:absolute;inset:0;width:100%;height:100%;z-index:0}
+.card.voice>.inner,.card.voice>.acts{position:relative;z-index:1}
+.listen{display:inline-flex;align-items:center;gap:5px;color:hsl(var(--h) 85% 80%)}
+.listen svg{width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:2}
+.stage{flex:1;max-height:46vh;display:flex;align-items:center;min-height:0}
+.line{margin:0;font-family:var(--read);font-size:clamp(21px,3.3vh,28px);line-height:1.75;font-weight:600;text-wrap:balance}
+.line span{opacity:.22;transition:opacity .25s,color .25s}
+.line span.done{opacity:1}
+.line span.now{opacity:1;color:hsl(var(--h) 90% 78%)}
+.vbar{height:3px;border-radius:2px;background:var(--faint);overflow:hidden}
+.vbar i{display:block;height:100%;width:0;background:hsl(var(--h) 85% 70%);transition:width .3s linear}
+.play{display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:600;padding:8px 14px;border-radius:18px;background:hsl(var(--h) 45% 24% / .9);border:1px solid hsl(var(--h) 60% 55% / .4);color:var(--fg)}
+.play svg{width:16px;height:16px;fill:currentColor}
+.tapgate{position:absolute;inset:0;z-index:2;display:grid;place-items:center;background:rgba(8,9,12,.35)}
+.tapgate span{display:flex;flex-direction:column;align-items:center;gap:12px;font-size:15px;font-weight:600}
+.tapgate i{width:78px;height:78px;border-radius:50%;display:grid;place-items:center;background:hsl(var(--h) 60% 45%);box-shadow:0 0 0 10px hsl(var(--h) 60% 45% / .2)}
+.tapgate svg{width:32px;height:32px;fill:var(--fg);margin-inline-start:4px}
+@media (prefers-reduced-motion:reduce){.line span{transition:none}}
 </style>
 
 </head>
@@ -76,7 +95,6 @@ h2{margin:0;font-size:clamp(22px,3.4vh,30px);line-height:1.35;font-weight:700;te
   <div class="top">
     <div class="brand"><i></i>ومضة</div>
     <div class="tools">
-      <span class="count" id="count"></span>
       <button class="pill" id="open-saved"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 3.5h12v17l-6-4-6 4z"/></svg>المحفوظات</button>
     </div>
   </div>
@@ -99,22 +117,32 @@ const COPY_ICON='<svg viewBox="0 0 24 24"><rect x="8" y="8" width="12" height="1
 const AR=n=>n.toLocaleString('ar-EG');
 const byId=Object.fromEntries(IDEAS.map(i=>[i.id,i]));
 
-let seen=new Set(),saved=[];
-try{seen=new Set(JSON.parse(localStorage.getItem('wamda-seen')||'[]'))}catch(e){}
+let queue=[],saved=[];
+try{queue=JSON.parse(localStorage.getItem('wamda-queue')||'[]').filter(id=>byId[id])}catch(e){}
 try{saved=JSON.parse(localStorage.getItem('wamda-saved')||'[]').filter(id=>byId[id])}catch(e){}
-const store=()=>{try{localStorage.setItem('wamda-seen',JSON.stringify([...seen]));localStorage.setItem('wamda-saved',JSON.stringify(saved))}catch(e){}};
+const store=()=>{try{localStorage.setItem('wamda-queue',JSON.stringify(queue));localStorage.setItem('wamda-saved',JSON.stringify(saved))}catch(e){}};
 
 /* الترتيب: لم يُشاهَد أولًا، ولا يأتي مجال (ولا كتاب) مرتين متتاليتين متى أمكن */
-let lastD=-1,lastB='';
+let lastD=-1,lastB='',lastV=0;
 function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a}
 function arrange(list){const pool=shuffle(list.slice()),out=[];
-  while(pool.length){let k=pool.findIndex(i=>i.d!==lastD&&i.en!==lastB);if(k<0)k=pool.findIndex(i=>i.en!==lastB);if(k<0)k=0;
-    const it=pool.splice(k,1)[0];out.push(it);lastD=it.d;lastB=it.en}return out}
-function nextRound(){return arrange(IDEAS.filter(i=>!seen.has(i.id))).concat(arrange(IDEAS.filter(i=>seen.has(i.id))))}
+  while(pool.length){let k=pool.findIndex(i=>i.d!==lastD&&i.en!==lastB&&!!i.v!==!!lastV);if(k<0)k=pool.findIndex(i=>i.d!==lastD&&i.en!==lastB);if(k<0)k=pool.findIndex(i=>i.en!==lastB);if(k<0)k=0;
+    const it=pool.splice(k,1)[0];out.push(it);lastD=it.d;lastB=it.en;lastV=it.v}return out}
+/* دائرة: الأفكار في طابور ثابت. أي فكرة تشاهدها تنتقل إلى آخر الطابور،
+   فتبدأ كل مرة من فكرة لم تشاهدها، وبعد آخر فكرة تبدأ الدورة من جديد دون توقف. */
+(function(){const inQ=new Set(queue),fresh=IDEAS.filter(i=>!inQ.has(i.id));
+  if(fresh.length){queue=arrange(fresh).map(i=>i.id).concat(queue);store()}})();
+(function(){try{if(localStorage.getItem('wamda-voice-intro'))return;localStorage.setItem('wamda-voice-intro','1')}catch(e){return}
+  const vs=queue.filter(id=>byId[id].v),ts=queue.filter(id=>!byId[id].v),out=[];
+  while(vs.length||ts.length){if(vs.length)out.push(vs.shift());if(ts.length)out.push(ts.shift())}queue=out;store()})();
+const ring=queue.slice();let ringPos=0;
+function nextRound(){const out=[];for(let k=0;k<ring.length;k++)out.push(byId[ring[(ringPos+k)%ring.length]]);return out}
+function markSeen(id){const k=queue.indexOf(id);if(k<0)return;queue.splice(k,1);queue.push(id);store()}
 
 const feed=document.getElementById('feed');let rendered=0;
-function readTime(x){const s=Math.min(120,Math.max(30,Math.round(x.split(/\s+/).length/140*60/10)*10));return s>=60?'قراءة '+(s===60?'دقيقة':s===120?'دقيقتين':AR(s/60)+' دقيقة'):'قراءة '+AR(s)+' ثانية'}
+function readTime(x){return x.split(/\s+/).length/140<1.5?'قراءة دقيقة':'قراءة دقيقتين'}
 function card(it){
+  if(it.v)return voiceCard(it);
   const D=DOMAINS[it.d],el=document.createElement('article');el.className='card';el.style.setProperty('--h',D.hue);el.dataset.id=it.id;el.dataset.n=rendered++;
   el.innerHTML=`<div class="inner">
     <div class="meta"><span class="chip"></span><span class="time"></span></div>
@@ -129,22 +157,123 @@ function card(it){
   el.querySelector('.time').textContent=readTime(it.x);
   el.querySelector('h2').textContent=it.t;
   const tx=el.querySelector('.text');it.x.split('\n\n').forEach(par=>{const p=document.createElement('p');p.textContent=par;tx.append(p)});
-  el.querySelector('.en').textContent=it.en;
-  el.querySelector('.au').textContent=it.a;
-  el.querySelector('.dom').textContent='المجال: '+D.name;
+  wire(el,it);io.observe(el);return el}
+function wire(el,it){const D=DOMAINS[it.d];
+  el.querySelector('.en').textContent=it.en;el.querySelector('.au').textContent=it.a;el.querySelector('.dom').textContent='المجال: '+D.name;
   const sb=el.querySelector('.save');paintSave(sb,it.id);
   sb.onclick=()=>{const k=saved.indexOf(it.id);k<0?saved.unshift(it.id):saved.splice(k,1);store();
     document.querySelectorAll(`.card[data-id="${it.id}"] .save`).forEach(b=>paintSave(b,it.id));toast(k<0?'حُفظت الفكرة':'أُزيلت من المحفوظات')};
   el.querySelector('.copy').onclick=()=>{const s=`${it.t}\n\n${it.x}\n\n${it.en} — ${it.a}\nالمجال: ${D.name}`;
-    try{navigator.clipboard.writeText(s).then(()=>toast('نُسخ النص'),()=>toast('تعذّر النسخ'))}catch(e){toast('تعذّر النسخ')}};
-  io.observe(el);return el}
+    try{navigator.clipboard.writeText(s).then(()=>toast('نُسخ النص'),()=>toast('تعذّر النسخ'))}catch(e){toast('تعذّر النسخ')}}}
 function paintSave(b,id){const on=saved.includes(id);b.classList.toggle('on',on);b.setAttribute('aria-pressed',on);b.querySelector('span').textContent=on?'محفوظة':'حفظ'}
 function appendRound(){const f=document.createDocumentFragment();nextRound().forEach(it=>f.append(card(it)));feed.append(f)}
 
-const countEl=document.getElementById('count');
-function updateCount(){countEl.textContent=AR(seen.size)+' / '+AR(IDEAS.length)}
+/* ---------- الريل الصوتي ---------- */
+const PLAY_SVG='<svg viewBox="0 0 24 24"><path d="M7 4.5v15l12-7.5z"/></svg>';
+const PAUSE_SVG='<svg viewBox="0 0 24 24"><path d="M6.5 4.5h4v15h-4zM13.5 4.5h4v15h-4z"/></svg>';
+const EAR_SVG='<svg viewBox="0 0 24 24"><path d="M4 14v-2a8 8 0 0 1 16 0v2"/><rect x="3" y="14" width="4.5" height="6" rx="1.5"/><rect x="16.5" y="14" width="4.5" height="6" rx="1.5"/></svg>';
+function chunks(it){
+  const out=[it.t+'.'];
+  it.x.split(/\n+/).forEach(par=>{
+    (par.match(/[^.؟!:]+[.؟!:]*/g)||[]).forEach(s=>{s=s.trim();if(!s)return;
+      let parts=[s];const wc=t=>t.split(/\s+/).length;
+      if(wc(s)>18)parts=s.split(/(?<=،)\s+/);
+      parts.forEach(p=>{const w=p.split(/\s+/);if(w.length<=24){out.push(p);return}
+        for(let i=0;i<w.length;i+=16)out.push(w.slice(i,i+16).join(' '))})})});
+  /* اجمع القطع القصيرة جدًا مع ما بعدها */
+  const merged=[];out.forEach(c=>{const last=merged[merged.length-1];
+    if(last&&last.split(/\s+/).length<5&&merged.length>1)merged[merged.length-1]=last+' '+c;else merged.push(c)});
+  return merged}
+function voiceCard(it){
+  const D=DOMAINS[it.d],el=document.createElement('article');el.className='card voice';el.style.setProperty('--h',D.hue);el.dataset.id=it.id;el.dataset.n=rendered++;
+  el.innerHTML=`<canvas class="bg"></canvas><div class="inner">
+    <div class="meta"><span class="chip"></span><span class="listen">${EAR_SVG}استماع</span></div>
+    <h2></h2>
+    <div class="stage"><p class="line" aria-live="polite"></p></div>
+    <div class="vbar"><i></i></div>
+    <div class="book">${BOOK_ICON}<b class="en"></b><span class="au"></span><span class="dom"></span></div>
+  </div>
+  <div class="acts">
+    <button class="act save" aria-pressed="false">${SAVE_ICON}<span>حفظ</span></button>
+    <button class="play">${PLAY_SVG}<span>تشغيل</span></button>
+    <button class="act copy">${COPY_ICON}<span>نسخ</span></button>
+  </div>
+  <button class="tapgate"><span><i>${PLAY_SVG}</i>اضغط للاستماع</span></button>`;
+  el.querySelector('.chip').textContent=D.name;
+  el.querySelector('h2').textContent=it.t;
+  wire(el,it);
+  const v={it,el,parts:chunks(it),i:0,state:'idle',gen:0,line:el.querySelector('.line'),bar:el.querySelector('.vbar i'),
+    btn:el.querySelector('.play'),gate:el.querySelector('.tapgate'),cv:el.querySelector('canvas'),t:0,amp:0};
+  el._v=v;showLine(v,1,0);
+  v.gate.onclick=()=>{unlocked=true;v.gate.hidden=true;startVoice(v)};
+  v.btn.onclick=()=>{unlocked=true;v.gate.hidden=true;v.state==='speaking'?pauseVoice(v):startVoice(v)};
+  io.observe(el);return el}
+
+let unlocked=false,current=null,msPerChar=75;
+const hasTTS='speechSynthesis' in window;
+let arVoice=null;
+function pickVoice(){try{const vs=speechSynthesis.getVoices();arVoice=vs.find(x=>/^ar/i.test(x.lang)&&/google/i.test(x.name))||vs.find(x=>/^ar/i.test(x.lang))||null}catch(e){}}
+if(hasTTS){pickVoice();try{speechSynthesis.onvoiceschanged=pickVoice}catch(e){}}
+
+function showLine(v,i,lit){const words=v.parts[i].split(/\s+/);v.line.innerHTML='';
+  words.forEach((w,k)=>{const s=document.createElement('span');s.textContent=w+(k<words.length-1?' ':'');if(k<lit)s.className='done';v.line.append(s)});
+  v.bar.style.width=(i/v.parts.length*100)+'%'}
+function paintBtn(v){const on=v.state==='speaking';v.btn.innerHTML=(on?PAUSE_SVG:PLAY_SVG)+'<span>'+(on?'إيقاف':v.state==='done'?'إعادة':'تشغيل')+'</span>'}
+
+function startVoice(v){
+  if(!hasTTS){toast('جهازك لا يدعم القراءة الصوتية');return}
+  if(current&&current!==v)stopVoice(current);
+  current=v;if(v.state==='done'){v.i=0}
+  v.state='speaking';paintBtn(v);speakPart(v)}
+function speakPart(v){
+  const gen=++v.gen;if(v.i>=v.parts.length){v.state='done';v.bar.style.width='100%';paintBtn(v);v.line.querySelectorAll('span').forEach(s=>s.className='done');return}
+  const text=v.parts[v.i];showLine(v,Math.max(v.i,1),0);if(v.i===0)v.line.querySelectorAll('span').forEach(s=>s.className='')
+  const spans=v.i===0?[]:[...v.line.children];let start=0,timer=null,boundary=false;
+  const u=new SpeechSynthesisUtterance(text);u.lang=arVoice?arVoice.lang:'ar-SA';if(arVoice)u.voice=arVoice;u.rate=.95;
+  /* إضاءة الكلمات: بالحدث الحقيقي إن توفر، وإلا بتقدير زمني يتعلّم من سرعة الصوت */
+  const lightTo=k=>spans.forEach((s,j)=>s.className=j<k?'done':j===k?'now':'');
+  u.onstart=()=>{if(gen!==v.gen)return;start=performance.now();let acc=0;const marks=spans.map(s=>{acc+=s.textContent.length;return acc});
+    const tick=()=>{if(gen!==v.gen||boundary)return;const el=(performance.now()-start)/msPerChar;let k=marks.findIndex(m=>m>el);if(k<0)k=spans.length-1;lightTo(k);timer=requestAnimationFrame(tick)};tick()};
+  u.onboundary=e=>{if(gen!==v.gen||e.name&&e.name!=='word')return;boundary=true;let acc=0,k=0;for(;k<spans.length;k++){acc+=spans[k].textContent.length;if(acc>e.charIndex)break}lightTo(k)};
+  u.onend=()=>{cancelAnimationFrame(timer);if(gen!==v.gen)return;
+    const dur=performance.now()-start;if(start&&dur>300)msPerChar=msPerChar*.6+(dur/text.length)*.4;
+    lightTo(spans.length);v.i++;setTimeout(()=>{if(gen===v.gen&&v.state==='speaking')speakPart(v)},180)};
+  u.onerror=e=>{cancelAnimationFrame(timer);if(gen!==v.gen||e.error==='interrupted'||e.error==='canceled')return;
+    v.state='idle';paintBtn(v);toast('تعذّر تشغيل الصوت. تأكد أن صوت الوسائط مرتفع')};
+  try{speechSynthesis.cancel()}catch(e){}
+  setTimeout(()=>{if(gen===v.gen)speechSynthesis.speak(u)},60)}
+function pauseVoice(v){v.gen++;v.state='paused';try{speechSynthesis.cancel()}catch(e){}paintBtn(v);showLine(v,Math.max(v.i,1),0)}
+function stopVoice(v){if(!v)return;v.gen++;if(v.state==='speaking')v.state='paused';try{speechSynthesis.cancel()}catch(e){}paintBtn(v);if(current===v)current=null}
+function activate(el){
+  if(current&&current.el!==el)stopVoice(current);
+  const v=el._v;active=el;if(!v)return;
+  if(unlocked){v.gate.hidden=true;if(v.state!=='speaking'){v.i=v.state==='done'?0:v.i;v.state='idle';startVoice(v)}}
+  else v.gate.hidden=false}
+let active=null;
+document.addEventListener('visibilitychange',()=>{if(document.hidden&&current)pauseVoice(current)});
+addEventListener('pagehide',()=>{try{speechSynthesis.cancel()}catch(e){}});
+
+/* الخلفية المتحركة: دوائر ضوئية هادئة بلون المجال، ونبض في المنتصف أثناء الكلام */
+const reduce=matchMedia('(prefers-reduced-motion: reduce)').matches;
+function drawBg(v,dt){const c=v.cv,d=Math.min(devicePixelRatio||1,2),w=c.clientWidth,h=c.clientHeight;if(!w)return;
+  if(c.width!==Math.round(w*d)){c.width=Math.round(w*d);c.height=Math.round(h*d)}
+  const g=c.getContext('2d'),W=c.width,H=c.height,hue=DOMAINS[v.it.d].hue;
+  if(!reduce)v.t+=dt;const t=v.t;
+  const target=v.state==='speaking'?1:0;v.amp+=(target-v.amp)*Math.min(1,dt*3);
+  g.fillStyle='#0b0c11';g.fillRect(0,0,W,H);
+  for(let i=0;i<7;i++){const r=(.25+.12*Math.sin(i*1.7))*Math.max(W,H),x=W*(.5+.38*Math.sin(t*.07*(1+i*.13)+i*2.1)),y=H*(.42+.34*Math.cos(t*.06*(1+i*.11)+i*1.3));
+    const gr=g.createRadialGradient(x,y,0,x,y,r);gr.addColorStop(0,`hsla(${hue+(i-3)*12},70%,${32+i*3}%,.32)`);gr.addColorStop(1,`hsla(${hue},60%,20%,0)`);g.fillStyle=gr;g.fillRect(0,0,W,H)}
+  const cx=W/2,cy=H*.5;
+  for(let k=0;k<3;k++){const ph=(t*.55+k/3)%1,R=(.12+ph*.42)*Math.min(W,H);
+    g.strokeStyle=`hsla(${hue},85%,72%,${(1-ph)*.22*v.amp})`;g.lineWidth=2*d;g.beginPath();g.arc(cx,cy,R,0,7);g.stroke()}
+  for(let i=0;i<40;i++){const x=(Math.sin(i*91.7)*.5+.5)*W,y=((Math.sin(i*37.3)*.5+.5)*H-t*(6+i%5*3)*d)%H;
+    g.fillStyle=`hsla(${hue+40},80%,85%,${.08+.1*(i%3)/2})`;g.beginPath();g.arc(x,y<0?y+H:y,(1+i%3)*d,0,7);g.fill()}}
+let lastT=performance.now();
+(function frame(now){const dt=Math.min((now-lastT)/1000,.1);lastT=now;if(active&&active._v)drawBg(active._v,dt);requestAnimationFrame(frame)})(lastT);
+addEventListener('pointerdown',()=>{unlocked=true},{capture:true,once:true});
+
 const io=new IntersectionObserver(es=>es.forEach(e=>{if(!e.isIntersecting)return;
-  const id=e.target.dataset.id;if(!seen.has(id)){seen.add(id);store();updateCount();if(seen.size===IDEAS.length)toast('أنهيت كل الأفكار المتاحة، وستُعاد عليك بترتيب جديد')}
+  markSeen(e.target.dataset.id);activate(e.target);
   if(+e.target.dataset.n>=rendered-3)appendRound()}),{rootMargin:'-50% 0px -50% 0px'});
 
 let tt;function toast(s){const t=document.getElementById('toast');t.textContent=s;t.hidden=false;clearTimeout(tt);tt=setTimeout(()=>t.hidden=true,1800)}
@@ -163,7 +292,7 @@ document.getElementById('open-saved').onclick=openSaved;document.getElementById(
 addEventListener('keydown',e=>{if(e.key==='Escape')closeSaved();
   if(sheet.hidden&&(e.key==='ArrowDown'||e.key==='ArrowUp')){e.preventDefault();feed.scrollBy({top:(e.key==='ArrowDown'?1:-1)*feed.clientHeight,behavior:'smooth'})}});
 
-updateCount();appendRound();
+appendRound();
 setTimeout(()=>{document.getElementById('hint').style.opacity=0},3500);
 if('serviceWorker' in navigator&&location.protocol==='https:'&&!/claude/.test(location.hostname)){try{navigator.serviceWorker.register('sw.js').catch(()=>{})}catch(e){}}
 </script>
