@@ -26,7 +26,29 @@ body{height:100%;margin:0;background:var(--bg);color:var(--fg);font-family:var(-
 button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:pointer}
 button:focus-visible{outline:2px solid var(--fg);outline-offset:3px;border-radius:6px}
 .app{position:relative;height:100%;max-width:560px;margin:0 auto}
-.top{position:absolute;inset-inline:0;top:0;z-index:5;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 16px;background:linear-gradient(var(--bg) 72%,transparent)}
+.top{position:absolute;inset-inline:0;top:0;z-index:5;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 16px 30px;background:linear-gradient(var(--bg) 78%,transparent)}
+/* Reading goals: three segments fill while you read (session goal), plus today's count toward 9 */
+.goals{position:absolute;top:56px;inset-inline:16px;z-index:6;display:flex;align-items:center;gap:12px;pointer-events:none}
+.seg{flex:1;display:grid;grid-template-columns:repeat(3,1fr);gap:5px}
+.seg i{position:relative;height:4px;border-radius:2px;background:var(--faint);overflow:hidden}
+.seg i b{position:absolute;inset:0;background:#f5c451;border-radius:2px;opacity:0;transition:opacity .35s}
+.seg i b.on{opacity:1}
+/* Full-screen congratulation after each 3 ideas; swipe up or tap to carry on */
+.done{position:absolute;inset:0;z-index:12;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:32px 24px;text-align:center;background:radial-gradient(90% 60% at 50% 40%,#2a2410,var(--bg) 75%);animation:fadein .35s ease-out}
+.done.day{background:radial-gradient(90% 60% at 50% 40%,#123222,var(--bg) 75%)}
+.done .mark{width:96px;height:96px;border-radius:50%;display:grid;place-items:center;background:#f5c451;box-shadow:0 0 0 12px rgba(245,196,81,.15),0 0 40px rgba(245,196,81,.35)}
+.done.day .mark{background:#7fd69b;box-shadow:0 0 0 12px rgba(127,214,155,.15),0 0 40px rgba(127,214,155,.35)}
+.done .mark svg{width:46px;height:46px;fill:none;stroke:#14120a;stroke-width:3;stroke-linecap:round;stroke-linejoin:round}
+.done h3{margin:8px 0 0;font-size:26px;font-weight:700}
+.done p{margin:0;color:var(--dim);font-size:15px;line-height:1.7}
+.done button{margin-top:18px;padding:12px 26px;border-radius:24px;background:var(--chip);border:1px solid var(--faint);font-weight:600;font-size:15px}
+.done small{color:var(--dim);font-size:12px}
+@keyframes fadein{from{opacity:0;transform:scale(.97)}to{opacity:1;transform:none}}
+@media (prefers-reduced-motion:reduce){.done{animation:none}}
+.goals.win .seg i b{background:#7fd69b}
+.day{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--dim);white-space:nowrap;font-variant-numeric:tabular-nums}
+.day svg{width:16px;height:16px;transform:rotate(-90deg)}
+.day.win{color:#7fd69b}
 .brand{display:flex;align-items:center;gap:8px;font-weight:700;font-size:20px}
 .brand i{width:10px;height:10px;border-radius:50%;background:#f5c451;box-shadow:0 0 12px #f5c451}
 .tools{display:flex;align-items:center;gap:10px}
@@ -34,12 +56,11 @@ button:focus-visible{outline:2px solid var(--fg);outline-offset:3px;border-radiu
 .pill svg{width:16px;height:16px}
 .feed{height:100%;overflow-y:scroll;scroll-snap-type:y mandatory;scrollbar-width:none;overscroll-behavior:contain}
 .feed::-webkit-scrollbar{display:none}
-.card{position:relative;height:100%;overflow-y:auto;scrollbar-width:none;overscroll-behavior-y:contain;scroll-snap-align:start;scroll-snap-stop:always;scroll-snap-type:y proximity;
+.card{position:relative;height:100%;overflow-y:auto;scrollbar-width:none;overscroll-behavior-y:contain;scroll-snap-align:start;scroll-snap-stop:always;
   background:radial-gradient(120% 60% at 50% 0%,hsl(var(--h) 45% 20%),var(--bg) 70%)}
 .card::-webkit-scrollbar{display:none}
 /* Each reel scrolls inside itself: there is always room to lift the cover away so the title sits at the top */
-.page{min-height:calc(100% + clamp(170px,30vh,250px) + clamp(10px,2vh,18px));display:flex;flex-direction:column;padding:64px 20px 20px;scroll-snap-align:start}
-.card h2{scroll-margin-top:64px;scroll-snap-align:start}
+.page{min-height:calc(100% + clamp(170px,30vh,250px) + clamp(10px,2vh,18px));display:flex;flex-direction:column;padding:80px 20px 20px}
 .cover img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:1}
 .inner{flex:1;display:flex;flex-direction:column;justify-content:flex-start;gap:clamp(10px,2vh,18px)}
 .meta{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:12px}
@@ -70,7 +91,7 @@ h2{margin:0;font-size:clamp(22px,3.4vh,30px);line-height:1.35;font-weight:700;te
 .act svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linejoin:round}
 .act.on{color:#f5c451}.act.on svg{fill:#f5c451;stroke:#f5c451}
 .hint{position:absolute;left:50%;bottom:76px;transform:translateX(-50%);z-index:6;padding:9px 16px;border-radius:18px;background:var(--panel);border:1px solid var(--faint);font-size:13px;white-space:nowrap;pointer-events:none;transition:opacity .6s}
-.toast{position:absolute;left:50%;top:64px;transform:translateX(-50%);z-index:7;padding:8px 14px;border-radius:16px;background:var(--panel);border:1px solid var(--faint);font-size:13px;pointer-events:none}
+.toast{position:absolute;left:50%;top:76px;white-space:nowrap;transform:translateX(-50%);z-index:7;padding:8px 14px;border-radius:16px;background:var(--panel);border:1px solid var(--faint);font-size:13px;pointer-events:none}
 .scrim{position:absolute;inset:0;z-index:8;background:rgba(0,0,0,.5)}
 .sheet{position:absolute;inset-inline:0;bottom:0;z-index:9;max-height:80%;display:flex;flex-direction:column;background:var(--panel);border-radius:18px 18px 0 0;padding-bottom:env(safe-area-inset-bottom,0px)}
 .sheet header{display:flex;justify-content:space-between;align-items:center;padding:14px 16px;border-bottom:1px solid var(--faint);font-weight:600}
@@ -95,6 +116,8 @@ h2{margin:0;font-size:clamp(22px,3.4vh,30px);line-height:1.35;font-weight:700;te
       <button class="pill" id="open-saved"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 3.5h12v17l-6-4-6 4z"/></svg>المحفوظات</button>
     </div>
   </div>
+  <div class="goals" id="goals" aria-label="أهداف القراءة"><div class="seg" id="seg"><i><b></b></i><i><b></b></i><i><b></b></i></div><span class="day" id="day"><svg viewBox="0 0 20 20"><circle cx="10" cy="10" r="8" fill="none" stroke="rgba(241,237,228,.14)" stroke-width="3"/><circle id="ring" cx="10" cy="10" r="8" fill="none" stroke="#f5c451" stroke-width="3" stroke-linecap="round" stroke-dasharray="50.27" stroke-dashoffset="50.27"/></svg><span id="daytxt"></span></span></div>
+  <section class="done" id="done" hidden role="dialog" aria-live="polite"><span class="mark"><svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span><h3></h3><p></p><button>متابعة القراءة</button><small>أو اسحب لأعلى</small></section>
   <main class="feed" id="feed" aria-label="الأفكار"></main>
   <div class="hint" id="hint">اسحب لأعلى للفكرة التالية</div>
   <div class="toast" id="toast" hidden></div>
@@ -174,7 +197,7 @@ const io=new IntersectionObserver(es=>es.forEach(e=>{if(!e.isIntersecting)return
 
 /* الانتقال بين الريلز: الريل يتحرك من الداخل أولًا، وحين تصل إلى آخره (أو أوله) تنقلك السحبة التالية للريل المجاور */
 function cardAt(){return feed.children[Math.round(feed.scrollTop/feed.clientHeight)]}
-function go(dir){const i=Math.round(feed.scrollTop/feed.clientHeight)+dir;if(i<0)return;feed.scrollTo({top:i*feed.clientHeight,behavior:'smooth'})}
+function go(dir,skip){if(!doneEl.hidden)return;if(dir>0&&!skip&&!beforeNext())return;const i=Math.round(feed.scrollTop/feed.clientHeight)+dir;if(i<0)return;feed.scrollTo({top:i*feed.clientHeight,behavior:'smooth'})}
 const edge=c=>({top:c.scrollTop<=2,bottom:c.scrollTop+c.clientHeight>=c.scrollHeight-2});
 let sy=0,sx=0,startEdge=null,startCard=null;
 feed.addEventListener('touchstart',e=>{const t=e.touches[0];sy=t.clientY;sx=t.clientX;startCard=cardAt();startEdge=startCard?edge(startCard):null},{passive:true});
@@ -198,8 +221,42 @@ function openSaved(){list.innerHTML='';
   sheet.hidden=scrim.hidden=false}
 const closeSaved=()=>{sheet.hidden=scrim.hidden=true};
 document.getElementById('open-saved').onclick=openSaved;document.getElementById('close').onclick=closeSaved;scrim.onclick=closeSaved;
-addEventListener('keydown',e=>{if(e.key==='Escape')closeSaved();
-  if(sheet.hidden&&(e.key==='ArrowDown'||e.key==='ArrowUp')){e.preventDefault();feed.scrollBy({top:(e.key==='ArrowDown'?1:-1)*feed.clientHeight,behavior:'smooth'})}});
+addEventListener('keydown',e=>{if(e.key==='Escape'){closeSaved();closeDone(false)}
+  if(sheet.hidden&&(e.key==='ArrowDown'||e.key==='ArrowUp')){e.preventDefault();go(e.key==='ArrowDown'?1:-1)}});
+
+/* أهداف القراءة: الفكرة تُحسب مقروءة حين تنتقل منها إلى الفكرة التالية.
+   كل 3 أفكار = هدف جلسة، وبعدها شاشة تهنئة توقف الانتقال حتى تسحب مرة أخرى. و9 أفكار في اليوم = الهدف اليومي. */
+const SESSION_GOAL=3,DAILY_GOAL=9;
+const today=()=>{const d=new Date();return d.getFullYear()+'-'+(d.getMonth()+1)+'-'+d.getDate()};
+let daily={date:today(),ids:[]};try{const s=JSON.parse(localStorage.getItem('wamda-daily')||'null');if(s&&s.date===today())daily=s}catch(e){}
+let sessionCount=0,hiddenAt=0;
+const segs=[...document.querySelectorAll('#seg b')],goalRing=document.getElementById('ring'),dayEl=document.getElementById('day'),dayTxt=document.getElementById('daytxt'),goalsEl=document.getElementById('goals');
+const doneEl=document.getElementById('done');
+function paintGoals(){if(daily.date!==today())daily={date:today(),ids:[]};
+  segs.forEach((b,k)=>b.classList.toggle('on',k<sessionCount));goalsEl.classList.toggle('win',sessionCount>=SESSION_GOAL);
+  const d=daily.ids.length;goalRing.style.strokeDashoffset=50.27*(1-Math.min(d/DAILY_GOAL,1));goalRing.style.stroke=d>=DAILY_GOAL?'#7fd69b':'#f5c451';
+  dayEl.classList.toggle('win',d>=DAILY_GOAL);dayTxt.textContent='اليوم '+AR(Math.min(d,DAILY_GOAL))+' من '+AR(DAILY_GOAL)}
+/* يُستدعى قبل الانتقال للفكرة التالية؛ يرجع false إذا ظهرت شاشة التهنئة بدل الانتقال */
+function beforeNext(){const c=cardAt();if(!c)return true;const id=c.dataset.id;
+  if(daily.date!==today())daily={date:today(),ids:[]};
+  if(daily.ids.includes(id))return true;
+  daily.ids.push(id);try{localStorage.setItem('wamda-daily',JSON.stringify(daily))}catch(e){}
+  sessionCount++;paintGoals();
+  if(daily.ids.length===DAILY_GOAL){showDone(true);return false}
+  if(sessionCount>=SESSION_GOAL){showDone(false);return false}
+  return true}
+function showDone(day){const n=daily.ids.length;
+  doneEl.querySelector('h3').textContent=day?'أنهيت هدفك اليومي':'أنهيت هدف هذه الجلسة';
+  doneEl.querySelector('p').textContent=day?'قرأت اليوم '+AR(n)+' أفكار. نهاية جلسة اليوم.':'قرأت '+AR(SESSION_GOAL)+' أفكار. اليوم: '+AR(Math.min(n,DAILY_GOAL))+' من '+AR(DAILY_GOAL);
+  doneEl.classList.toggle('day',day);doneEl.hidden=false}
+function closeDone(move){if(doneEl.hidden)return;doneEl.hidden=true;sessionCount=0;paintGoals();if(move)go(1,true)}
+doneEl.querySelector('button').onclick=()=>closeDone(true);
+let dsy=0;doneEl.addEventListener('touchstart',e=>{dsy=e.touches[0].clientY},{passive:true});
+doneEl.addEventListener('touchend',e=>{if(dsy-e.changedTouches[0].clientY>45)closeDone(true)},{passive:true});
+doneEl.addEventListener('wheel',e=>{e.preventDefault();if(e.deltaY>8)closeDone(true)},{passive:false});
+document.addEventListener('visibilitychange',()=>{if(document.hidden)hiddenAt=Date.now();
+  else if(hiddenAt&&Date.now()-hiddenAt>30*60*1000&&doneEl.hidden){sessionCount=0;paintGoals()}});
+paintGoals();
 
 appendRound();
 setTimeout(()=>{document.getElementById('hint').style.opacity=0},3500);
