@@ -88,7 +88,7 @@ h2{margin:0;font-size:clamp(22px,3.4vh,30px);line-height:1.35;font-weight:700;te
 .text p{margin:0;white-space:pre-line}
 .book .dom{color:var(--dim)}
 /* Optional listening: one tap reads the idea aloud; the paragraph being read is lit */
-.listen{align-self:flex-start;display:inline-flex;align-items:center;gap:8px;padding:9px 16px;border-radius:20px;font-size:14px;font-weight:600;color:hsl(var(--h) 85% 80%);background:hsl(var(--h) 45% 22% / .7);border:1px solid hsl(var(--h) 60% 55% / .35)}
+.listen{display:inline-flex;align-items:center;gap:8px;padding:9px 16px;border-radius:20px;font-size:14px;font-weight:600;color:hsl(var(--h) 85% 80%);background:hsl(var(--h) 45% 22% / .7);border:1px solid hsl(var(--h) 60% 55% / .35)}
 .listen svg{width:17px;height:17px;fill:none;stroke:currentColor;stroke-width:2}
 .listen.on{background:hsl(var(--h) 55% 40%);color:#fbf7ee}
 .text.speaking p{opacity:.45;transition:opacity .3s}.text.speaking p.now{opacity:1}
@@ -178,10 +178,10 @@ function card(it){
     <div class="cover">${motif(it)}<img alt="" loading="lazy" src="covers/${it.id.replace(/-\d+$/,'')}.jpg" onerror="this.remove()"><div class="ctop"><span class="chip"></span><span class="time"></span></div>
       <div class="ctext"><b class="en"></b><span class="au"></span></div></div>
     <h2></h2><div class="text"></div>
-    <button class="listen" hidden>${EAR_SVG}<span>استمع</span></button>
   </div>
   <div class="acts">
     <button class="act save" aria-pressed="false">${SAVE_ICON}<span>حفظ</span></button>
+    <button class="listen" hidden>${EAR_SVG}<span>استمع</span></button>
     <button class="act copy">${COPY_ICON}<span>نسخ</span></button>
   </div></div>`;
   el.querySelector('.chip').textContent=D.name;
